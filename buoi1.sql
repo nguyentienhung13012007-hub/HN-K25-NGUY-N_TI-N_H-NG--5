@@ -53,7 +53,6 @@ values
 ('Z04', 'Nhà kính trung tâm', 100, 'Full Sun', 'Occupied'),
 ('Z05', 'Khu thực nghiệm', 25, 'Shade', 'Maintenance');
 
-
 insert into Planting_Logs
 values
 (1, 'Z01', 'C02', '2025-10-01', '2025-11-10 08:00:00', 1),
@@ -70,81 +69,92 @@ values
 (2, 4, '2025-12-10', 380.5, 'A'),
 (3, 3, '2025-11-25', 65.0, 'B'),
 (4, 2, '2025-12-20', 0.0, 'C');
--- 4
+-- 4 Do cải tiến công nghệ, sản lượng dự kiến (expected_yield) của cây 'C01' tăng thêm 10%.
+
 update Crops
 set expected_yield=expected_yield*1.1
 where crop_id='C01';
--- 5
+-- 5 Cập nhật status của khu vực 'Z03' thành 'Maintenance'.
+
 update Zones
 set status='Maintenance'
 where zone_id='Z03';
--- 6
+-- 6 Xóa các bản ghi thu hoạch có actual_yield bằng 0 hoặc quality_grade là 'C'.
 set sql_safe_updates=0;
 delete  from Harvests
 where actual_yield=0 or quality_grade='C';
--- 7
+-- 7 Thêm ràng buộc cho cột area_square_meters: diện tích phải lớn hơn 0.
+
 alter table Zones
 modify column area_square_meters decimal(10,2) not null check(area_square_meters>0);
--- 8
+-- 8 Thiết lập giá trị mặc định cho cột is_automated trong bảng Planting_Logs là 1 (True).
+
 alter table Planting_Logs 
 alter column is_automated set default 1;
--- 9
+-- 9 Thêm cột fertilizer_type (VARCHAR(50)) vào bảng Crops để quản lý loại phân bón.
+
 alter table Crops
 add column fertilizer_type VARCHAR(50);
--- 10
+-- 10 Liệt kê tất cả các loại cây có thời gian sinh trưởng (growth_time_days) dưới 50 ngày.
 select *
 from Crops
 where growth_time_days<50;
--- 11
+-- 11 Lấy thông tin zone_name, area_square_meters của các khu vực có điều kiện ánh sáng là 'Full Sun'.
+
 select zone_name ,area_square_meters 
 from Zones
 where light_condition='Full Sun';
--- 12
+-- 12 Hiển thị danh sách các loại cây gồm crop_name, expected_yield, sắp xếp theo sản lượng dự kiến giảm dần.
+
 select  crop_name, expected_yield
 from Crops
 order by expected_yield desc;
- -- 13
+ -- 13 Lấy ra 3 nhật ký trồng trọt (Planting_Logs) mới nhất.
+
 select*
 from Planting_Logs
 order by planting_date desc
 limit 3;
--- 14
+-- 14 Hiển thị zone_name, status từ bảng Zones, bỏ qua khu vực đầu tiên và lấy 2 khu vực tiếp theo.
 select zone_name, status
 from Zones 
 limit 2 
 offset 1;
--- 115
+-- 15 Cập nhật last_watered thành thời gian hiện tại cho tất cả các nhật ký có is_automated = 1.
 update Planting_Logs
 set last_watered = current_timestamp
 where is_automated=1;
--- 16
+-- 16 Chuyển đổi toàn bộ crop_name trong bảng Crops thành chữ in hoa.
+
 update Crops 
 set crop_name=upper(crop_name);
--- 17
+-- 17 Xóa các khu vực (Zones) có trạng thái là 'Maintenance' (đảm bảo xử lý ràng buộc khóa ngoại).
+
 delete from Zones
 where status='Maintenance';
--- 18
+-- 18 Hiển thị log_id, zone_name, crop_name, planting_date của các khu vực đang có cây trồng (trạng thái 'Occupied').
+
 select  P.log_id, Z.zone_name, C.crop_name, P.planting_date
 from Planting_Logs P
 join Crops C on P.crop_id=C.crop_id
 join Zones Z on P.zone_id=Z.zone_id
 where status='Occupied';
--- 19
+-- 19 Liệt kê tất cả các khu vực (zone_name) và số lần đã được trồng trọt trong quá khứ. Hiển thị cả những khu vực chưa từng trồng cây nào.
 select Z.zone_name,count(P.log_id) as total
 from Zones Z
 left join Planting_Logs P on Z.zone_id=P.zone_id
 group by Z.zone_name;
--- 20
+-- 20 Tính tổng sản lượng thực tế (actual_yield) thu hoạch được theo từng loại cây trồng.
 select crop_name,sum(actual_yield) as total_actual
 from Planting_Logs P
 join Crops C on P.crop_id=C.crop_id
 join Harvests H on P.log_id=H.log_id
 group by C.crop_name;
--- 22
+-- 22 Tìm các loại cây có sản lượng dự kiến (expected_yield) cao hơn mức trung bình của tất cả các loại cây trong hệ thống
 select crop_name,expected_yield
 from Crops
 where expected_yield>(select avg(expected_yield)from Crops);
--- 23
+-- 23Hiển thị tên các khu vực (zone_name) đang trồng loại cây "Cà chua Cherry".
 select distinct Z.zone_name
 from Planting_Logs P
 join Zones Z on P.zone_id=Z.zone_id
